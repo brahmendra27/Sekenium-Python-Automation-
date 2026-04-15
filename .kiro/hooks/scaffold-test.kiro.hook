@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Scaffold New Test File",
+  "description": "Scaffolds new test files with correct imports and structure",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": [
+      "tests/**/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Scaffold this new test file. Determine if it's in tests/selenium/ or tests/playwright/ and add: 1) Appropriate imports (pytest, selenium/playwright modules), 2) Correct fixture in function signature, 3) Appropriate marker decorator, 4) Placeholder test function with docstring."
+  }
+}

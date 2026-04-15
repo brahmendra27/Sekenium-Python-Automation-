@@ -1,0 +1,43 @@
+# Test reports
+reports/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+venv/
+env/
+ENV/
+.venv/
+
+# Browser driver binaries
+chromedriver
+geckodriver
+msedgedriver
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+playwright/.cache/
+test-results/
+playwright-report/
+
+# Traces
+traces/

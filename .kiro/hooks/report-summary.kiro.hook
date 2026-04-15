@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Test Report Summary",
+  "description": "Summarizes test execution report and highlights failures",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Summarize the test execution report at reports/report.json. Highlight: 1) Total tests, passed, failed, skipped, 2) Duration, 3) Failed test names and error messages, 4) Suggest next steps for failures."
+  }
+}

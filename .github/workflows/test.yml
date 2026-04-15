@@ -1,0 +1,78 @@
+name: Test Automation Framework CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          tags: test-automation-framework:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run tests in Docker container
+        id: run-tests
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}/reports:/app/reports \
+            -e HEADLESS=true \
+            test-automation-framework:latest \
+            pytest --headless
+      
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report
+          path: reports/report.html
+          if-no-files-found: warn
+      
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-report
+          path: reports/report.json
+          if-no-files-found: warn
+      
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: reports/screenshots/
+          if-no-files-found: ignore
+      
+      - name: Upload traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces
+          path: reports/traces/
+          if-no-files-found: ignore
+      
+      - name: Check test results
+        if: steps.run-tests.outcome == 'failure'
+        run: |
+          echo "Tests failed. Check the uploaded reports for details."
+          exit 1

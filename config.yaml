@@ -1,0 +1,27 @@
+# Base URL for application under test
+base_url: "http://localhost:8080"
+
+# Browser selection: chrome, firefox (Selenium); chromium, firefox, webkit (Playwright)
+browser: "chrome"
+
+# Headless mode: true for CI, false for local debugging
+headless: false
+
+# Default timeout for element waits (seconds)
+timeout: 30
+
+# Number of parallel workers for pytest-xdist (1 = sequential)
+parallel_workers: 1
+
+# Report output directory
+report_dir: "reports"
+
+# Selenium-specific settings
+selenium:
+  implicit_wait: 10
+  page_load_timeout: 60
+
+# Playwright-specific settings
+playwright:
+  slow_mo: 0  # Slow down operations by N milliseconds
+  tracing: true  # Enable tracing on failure

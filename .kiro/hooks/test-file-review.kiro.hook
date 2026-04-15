@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Test File Convention Review",
+  "description": "Reviews test files for framework convention compliance",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "tests/**/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review this test file for framework convention violations. Check: 1) Correct fixture usage (selenium_driver or playwright_page), 2) Appropriate marker (@pytest.mark.selenium or @pytest.mark.playwright), 3) Naming convention (test_<action>_<result>), 4) Docstring present, 5) One assertion per test when possible."
+  }
+}

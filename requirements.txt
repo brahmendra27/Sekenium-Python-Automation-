@@ -1,0 +1,16 @@
+# Core testing framework
+pytest==7.4.3
+pytest-html==4.1.1
+pytest-json-report==1.5.0
+pytest-xdist==3.5.0
+
+# Selenium
+selenium==4.16.0
+webdriver-manager==4.0.1
+
+# Playwright
+playwright==1.40.0
+pytest-playwright==0.4.4
+
+# Configuration
+pyyaml==6.0.1

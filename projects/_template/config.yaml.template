@@ -1,0 +1,24 @@
+# Project Configuration Template
+# Copy this file to config.yaml and update with your project details
+
+# Project information
+project_name: "PROJECT_NAME"
+base_url: "https://example.com"
+
+# Browser settings
+browser: "chrome"  # chrome, firefox, chromium, webkit
+headless: false
+timeout: 30
+
+# Test data (optional)
+test_users:
+  - email: "test1@example.com"
+    password: "Test123!"
+
+# Reporting
+report_dir: "projects/PROJECT_NAME/reports"
+allure_results_dir: "projects/PROJECT_NAME/reports/allure-results"
+csv_dir: "projects/PROJECT_NAME/reports/csv"
+
+# Project-specific settings
+# Add your custom configuration here

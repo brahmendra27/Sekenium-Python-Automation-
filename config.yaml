@@ -1,5 +1,5 @@
 # Base URL for application under test
-base_url: "http://localhost:8080"
+base_url: "https://automationteststore.com/"
 
 # Browser selection: chrome, firefox (Selenium); chromium, firefox, webkit (Playwright)
 browser: "chrome"

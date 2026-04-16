@@ -1,0 +1,14 @@
+{
+  "name": "AI Element Healer",
+  "version": "1.0.0",
+  "description": "Ask Kiro AI to suggest fixes when element locators fail",
+  "enabled": true,
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["shell"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The test execution failed. Analyze the error output and suggest fixes for element locator failures. Check: 1) Has the selector changed? 2) Is there a timing issue? 3) Is the element in an iframe? 4) Suggest alternative locators (ID, CSS, XPath). Provide specific code fixes."
+  }
+}

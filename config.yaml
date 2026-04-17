@@ -25,3 +25,19 @@ selenium:
 playwright:
   slow_mo: 0  # Slow down operations by N milliseconds
   tracing: true  # Enable tracing on failure
+
+# API Testing settings
+api:
+  base_url: "https://jsonplaceholder.typicode.com"  # Example API endpoint
+  timeout: 30
+  verify_ssl: true
+  default_headers:
+    Content-Type: "application/json"
+    Accept: "application/json"
+
+# MongoDB settings
+mongodb:
+  connection_string: "mongodb://localhost:27017"
+  database: "test_db"
+  timeout: 5000
+  max_pool_size: 10

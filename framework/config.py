@@ -93,3 +93,88 @@ class Config:
             Report directory path (default: reports)
         """
         return self.get('report_dir', 'reports')
+    
+    # API Testing Configuration
+    @property
+    def api_base_url(self) -> str:
+        """Get API base URL.
+        
+        Returns:
+            API base URL string
+        """
+        api_config = self.get('api', {})
+        return api_config.get('base_url', 'http://localhost:8080/api')
+    
+    @property
+    def api_timeout(self) -> int:
+        """Get API request timeout.
+        
+        Returns:
+            Timeout in seconds (default: 30)
+        """
+        api_config = self.get('api', {})
+        return api_config.get('timeout', 30)
+    
+    @property
+    def api_verify_ssl(self) -> bool:
+        """Get SSL verification setting for API requests.
+        
+        Returns:
+            True if SSL verification enabled (default: True)
+        """
+        api_config = self.get('api', {})
+        return api_config.get('verify_ssl', True)
+    
+    @property
+    def api_default_headers(self) -> dict:
+        """Get default headers for API requests.
+        
+        Returns:
+            Dictionary of default headers
+        """
+        api_config = self.get('api', {})
+        return api_config.get('default_headers', {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+    
+    # MongoDB Configuration
+    @property
+    def mongodb_connection_string(self) -> str:
+        """Get MongoDB connection string.
+        
+        Returns:
+            MongoDB connection string
+        """
+        mongodb_config = self.get('mongodb', {})
+        return mongodb_config.get('connection_string', 'mongodb://localhost:27017')
+    
+    @property
+    def mongodb_database(self) -> str:
+        """Get MongoDB database name.
+        
+        Returns:
+            Database name (default: test_db)
+        """
+        mongodb_config = self.get('mongodb', {})
+        return mongodb_config.get('database', 'test_db')
+    
+    @property
+    def mongodb_timeout(self) -> int:
+        """Get MongoDB connection timeout.
+        
+        Returns:
+            Timeout in milliseconds (default: 5000)
+        """
+        mongodb_config = self.get('mongodb', {})
+        return mongodb_config.get('timeout', 5000)
+    
+    @property
+    def mongodb_max_pool_size(self) -> int:
+        """Get MongoDB connection pool size.
+        
+        Returns:
+            Max pool size (default: 10)
+        """
+        mongodb_config = self.get('mongodb', {})
+        return mongodb_config.get('max_pool_size', 10)

@@ -61,7 +61,9 @@ RUN playwright install --with-deps
 # Copy framework code and tests
 COPY framework/ ./framework/
 COPY tests/ ./tests/
+COPY conftest.py .
 COPY config.yaml .
+COPY config.skechers-staging.yaml .
 COPY pytest.ini .
 
 # Create reports directory

@@ -1,0 +1,58 @@
+# Demo E-commerce Configuration
+
+# Base URL for demo e-commerce site
+# Using a public demo site for testing
+base_url: "https://www.saucedemo.com"
+
+# Browser selection
+browser: "chrome"
+
+# Headless mode
+headless: false
+
+# Default timeout
+timeout: 30
+
+# Parallel workers
+parallel_workers: 1
+
+# Report directory
+report_dir: "reports"
+
+# Selenium settings
+selenium:
+  implicit_wait: 10
+  page_load_timeout: 60
+
+# Playwright settings
+playwright:
+  slow_mo: 0
+  tracing: true
+
+# API Testing (if applicable)
+api:
+  base_url: "https://api.saucedemo.com"
+  timeout: 30
+  verify_ssl: true
+  default_headers:
+    Content-Type: "application/json"
+    Accept: "application/json"
+
+# Test data
+demo_ecommerce:
+  # Test credentials (for demo site)
+  test_user:
+    username: "standard_user"
+    password: "secret_sauce"
+  
+  # Product categories
+  categories:
+    - "All Items"
+    - "Backpacks"
+    - "Clothing"
+  
+  # Test scenarios
+  scenarios:
+    - "add_to_cart"
+    - "checkout"
+    - "filter_products"

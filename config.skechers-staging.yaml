@@ -1,0 +1,76 @@
+# Skechers Staging Environment Configuration
+
+# Base URL for Skechers staging
+base_url: "https://staging.skechers.com/"
+
+# Browser selection: chrome, firefox (Selenium); chromium, firefox, webkit (Playwright)
+browser: "chrome"
+
+# Headless mode: true for CI, false for local debugging
+headless: false
+
+# Default timeout for element waits (seconds)
+timeout: 30
+
+# Number of parallel workers for pytest-xdist (1 = sequential)
+parallel_workers: 1
+
+# Report output directory
+report_dir: "reports"
+
+# Selenium-specific settings
+selenium:
+  implicit_wait: 10
+  page_load_timeout: 60
+
+# Playwright-specific settings
+playwright:
+  slow_mo: 0  # Slow down operations by N milliseconds
+  tracing: true  # Enable tracing on failure
+
+# API Testing Configuration
+api:
+  base_url: "https://staging-api.skechers.com"
+  timeout: 30
+  verify_ssl: true
+  default_headers:
+    Content-Type: "application/json"
+    Accept: "application/json"
+    User-Agent: "Skechers-Test-Automation/1.0"
+
+# MongoDB Configuration (if applicable)
+mongodb:
+  connection_string: "mongodb://localhost:27017"
+  database: "skechers_staging_db"
+  timeout: 5000
+  max_pool_size: 10
+
+# Skechers-specific settings
+skechers:
+  # Test user credentials (use environment variables in CI)
+  test_user:
+    email: "test.user@skechers.com"
+    password: "TestPassword123!"
+  
+  # Product categories to test
+  categories:
+    - "Men"
+    - "Women"
+    - "Kids"
+  
+  # Test product IDs
+  test_products:
+    - "12345"
+    - "67890"
+  
+  # Regions/Locales
+  regions:
+    - "US"
+    - "UK"
+    - "CA"
+  
+  # Feature flags
+  features:
+    enable_wishlist: true
+    enable_reviews: true
+    enable_recommendations: true

@@ -7,7 +7,6 @@ ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies for browsers
-# Chrome dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -24,22 +23,15 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     libnspr4 \
     libnss3 \
-    libwayland-client0 \
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
-    libu2f-udev \
-    libvulkan1 \
-    # Firefox dependencies
     libdbus-glib-1-2 \
     libxt6 \
-    # Additional dependencies for WebKit
-    libwoff1 \
     libopus0 \
-    libwebpdemux2 \
     libenchant-2-2 \
     libsecret-1-0 \
     libhyphen0 \
@@ -47,18 +39,11 @@ RUN apt-get update && apt-get install -y \
     libegl1 \
     libnotify4 \
     libxslt1.1 \
-    libevent-2.1-7 \
     libgles2 \
     libvpx7 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
     libpango-1.0-0 \
     libcairo2 \
     libglib2.0-0 \
-    # Clean up
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

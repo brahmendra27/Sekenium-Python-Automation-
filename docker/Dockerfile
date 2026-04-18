@@ -1,5 +1,5 @@
-# Use Python 3.11 as base image
-FROM python:3.11-slim
+# Use Python 3.11 with full system tools (not slim)
+FROM python:3.11
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers with system dependencies
-# Note: playwright command is now available after pip install
+# Using full python:3.11 image provides necessary system tools
 RUN python -m playwright install --with-deps chromium firefox
 
 # Copy framework code and tests

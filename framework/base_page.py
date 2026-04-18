@@ -15,34 +15,77 @@ import allure
 class BasePageSelenium:
     """Base class for Selenium Page Objects with common functionality."""
     
-    def __init__(self, driver, timeout=30):
+    def __init__(self, driver, timeout=30, base_url=None):
         """
         Initialize base page.
         
         Args:
             driver: Selenium WebDriver instance
             timeout: Default timeout for waits in seconds
+            base_url: Base URL for the application (optional, for relative URLs)
         """
         self.driver = driver
         self.timeout = timeout
+        self.base_url = base_url or ""
         self.wait = WebDriverWait(driver, timeout)
     
     @allure.step("Navigate to {url}")
     def navigate_to(self, url):
-        """Navigate to a URL."""
-        self.driver.get(url)
+        """
+        Navigate to a URL (supports both absolute and relative URLs).
+        
+        Args:
+            url: URL to navigate to (absolute or relative)
+        """
+        # If URL starts with http:// or https://, use it as-is
+        if url.startswith(('http://', 'https://')):
+            full_url = url
+        # If URL is relative and base_url is set, combine them
+        elif self.base_url:
+            # Remove trailing slash from base_url and leading slash from url if both exist
+            base = self.base_url.rstrip('/')
+            path = url.lstrip('/') if url.startswith('/') else url
+            full_url = f"{base}/{path}"
+        else:
+            # No base_url set, use URL as-is (might fail if relative)
+            full_url = url
+        
+        self.driver.get(full_url)
     
     @allure.step("Find element: {locator}")
-    def find_element(self, locator):
+    def find_element(self, locator_type, locator_value=None):
         """
         Find element with explicit wait.
         
         Args:
-            locator: Tuple of (By.TYPE, "selector")
+            locator_type: Either a tuple of (By.TYPE, "selector") or a string like "css", "xpath", etc.
+            locator_value: Selector value (required if locator_type is a string)
             
         Returns:
             WebElement
         """
+        from selenium.webdriver.common.by import By
+        
+        # If locator_type is a tuple, use it directly
+        if isinstance(locator_type, tuple):
+            locator = locator_type
+        # If locator_type is a string, convert to tuple
+        elif isinstance(locator_type, str) and locator_value is not None:
+            selector_map = {
+                "css": By.CSS_SELECTOR,
+                "xpath": By.XPATH,
+                "id": By.ID,
+                "name": By.NAME,
+                "class": By.CLASS_NAME,
+                "tag": By.TAG_NAME,
+                "link_text": By.LINK_TEXT,
+                "partial_link_text": By.PARTIAL_LINK_TEXT
+            }
+            by_type = selector_map.get(locator_type.lower(), By.CSS_SELECTOR)
+            locator = (by_type, locator_value)
+        else:
+            raise ValueError("Invalid locator format. Use tuple (By.TYPE, 'selector') or strings ('css', 'selector')")
+        
         return self.wait.until(EC.presence_of_element_located(locator))
     
     @allure.step("Find elements: {locator}")
@@ -145,6 +188,44 @@ class BasePageSelenium:
         try:
             wait_time = timeout or self.timeout
             WebDriverWait(self.driver, wait_time).until(
+                EC.presence_of_element_located(locator)
+            )
+            return True
+        except TimeoutException:
+            return False
+    
+    @allure.step("Check if element is present: {selector_type}={selector}")
+    def is_element_present(self, selector_type, selector, timeout=5):
+        """
+        Check if element is present in DOM using string selector type and value.
+        
+        Args:
+            selector_type: Type of selector ("css", "xpath", "id", "name", "class", "tag")
+            selector: Selector value
+            timeout: Optional custom timeout (default 5 seconds for quick checks)
+            
+        Returns:
+            bool: True if present, False otherwise
+        """
+        from selenium.webdriver.common.by import By
+        
+        # Map string selector types to By constants
+        selector_map = {
+            "css": By.CSS_SELECTOR,
+            "xpath": By.XPATH,
+            "id": By.ID,
+            "name": By.NAME,
+            "class": By.CLASS_NAME,
+            "tag": By.TAG_NAME,
+            "link_text": By.LINK_TEXT,
+            "partial_link_text": By.PARTIAL_LINK_TEXT
+        }
+        
+        by_type = selector_map.get(selector_type.lower(), By.CSS_SELECTOR)
+        locator = (by_type, selector)
+        
+        try:
+            WebDriverWait(self.driver, timeout).until(
                 EC.presence_of_element_located(locator)
             )
             return True

@@ -15,7 +15,7 @@ class TestSkechersHomepage:
     @pytest.mark.smoke
     def test_homepage_loads(self, driver):
         """Test that Skechers homepage loads successfully."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Verify page title contains Skechers
@@ -28,7 +28,7 @@ class TestSkechersHomepage:
     @pytest.mark.smoke
     def test_logo_present(self, driver):
         """Test that Skechers logo is present on homepage."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Check for logo (update selector based on actual site)
@@ -50,7 +50,7 @@ class TestSkechersHomepage:
     @pytest.mark.smoke
     def test_navigation_menu_present(self, driver):
         """Test that main navigation menu is present."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Check for navigation menu
@@ -71,7 +71,7 @@ class TestSkechersHomepage:
     
     def test_search_functionality_present(self, driver):
         """Test that search functionality is present."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Check for search input
@@ -92,7 +92,7 @@ class TestSkechersHomepage:
     
     def test_footer_present(self, driver):
         """Test that footer is present on homepage."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Check for footer
@@ -113,7 +113,7 @@ class TestSkechersHomepage:
     @pytest.mark.regression
     def test_category_links_present(self, driver):
         """Test that main category links are present."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Expected categories
@@ -152,7 +152,7 @@ class TestSkechersResponsiveness:
         width, height = viewport
         driver.set_window_size(width, height)
         
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Verify page loads

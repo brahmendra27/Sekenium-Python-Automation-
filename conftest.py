@@ -36,8 +36,26 @@ def driver(config):
     
     selenium_driver = SeleniumDriver(browser=browser, headless=headless)
     driver = selenium_driver.initialize()
+    
+    # Store config on driver for access in tests
+    driver.config = config
+    driver.base_url = config.base_url
+    
     yield driver
     driver.quit()
+
+
+@pytest.fixture(scope="session")
+def base_url(config):
+    """Provide base URL from configuration.
+    
+    Args:
+        config: Configuration fixture
+        
+    Returns:
+        Base URL string
+    """
+    return config.base_url
 
 
 @pytest.fixture(scope="function")

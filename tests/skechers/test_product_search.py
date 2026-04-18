@@ -16,7 +16,7 @@ class TestSkechersProductSearch:
     @pytest.mark.smoke
     def test_search_with_valid_keyword(self, driver):
         """Test searching with a valid product keyword."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Find and interact with search input
@@ -79,7 +79,7 @@ class TestSkechersProductSearch:
     
     def test_search_with_empty_query(self, driver):
         """Test searching with empty query."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Find search input
@@ -116,7 +116,7 @@ class TestSkechersProductSearch:
     ])
     def test_search_various_products(self, driver, search_term):
         """Test searching for various product types."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         # Find and use search
@@ -148,7 +148,7 @@ class TestSkechersSearchResults:
     
     def test_search_results_display(self, driver):
         """Test that search results are displayed."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         
         # Navigate directly to search results (if URL pattern is known)
         # Or perform a search first
@@ -185,7 +185,7 @@ class TestSkechersSearchResults:
     
     def test_search_filters_present(self, driver):
         """Test that search filters are present on results page."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         try:
@@ -217,7 +217,7 @@ class TestSkechersSearchResults:
     
     def test_search_sorting_options(self, driver):
         """Test that sorting options are available."""
-        page = BasePageSelenium(driver)
+        page = BasePageSelenium(driver, base_url=driver.base_url)
         page.navigate_to("/")
         
         try:

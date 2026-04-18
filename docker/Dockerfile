@@ -12,12 +12,12 @@ WORKDIR /app
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies
+# Install Python dependencies first
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers with all system dependencies
-# This will automatically install all required packages
-RUN playwright install --with-deps chromium firefox
+# Install Playwright browsers with system dependencies
+# Note: playwright command is now available after pip install
+RUN python -m playwright install --with-deps chromium firefox
 
 # Copy framework code and tests
 COPY framework/ ./framework/

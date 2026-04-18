@@ -2,7 +2,7 @@
   "name": "AI Element Healer",
   "version": "1.0.0",
   "description": "Ask Kiro AI to suggest fixes when element locators fail",
-  "enabled": true,
+  "enabled": false,
   "when": {
     "type": "postToolUse",
     "toolTypes": ["shell"]

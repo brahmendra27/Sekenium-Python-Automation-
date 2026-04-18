@@ -4,6 +4,8 @@ import pytest
 from framework.config import Config
 from framework.api_client import APIClient, APIResponse
 from framework.mongodb_client import MongoDBClient, MongoDBTestHelper
+from framework.selenium_driver import SeleniumDriver
+from framework.playwright_driver import PlaywrightDriver
 
 
 @pytest.fixture(scope="session")
@@ -14,6 +16,44 @@ def config():
         Config instance
     """
     return Config()
+
+
+@pytest.fixture(scope="function")
+def driver(config):
+    """Provide Selenium WebDriver for tests.
+    
+    Args:
+        config: Configuration fixture
+        
+    Returns:
+        WebDriver instance
+        
+    Yields:
+        WebDriver instance (quits after test)
+    """
+    selenium_driver = SeleniumDriver(config)
+    driver = selenium_driver.get_driver()
+    yield driver
+    driver.quit()
+
+
+@pytest.fixture(scope="function")
+def playwright_driver(config):
+    """Provide Playwright driver for tests.
+    
+    Args:
+        config: Configuration fixture
+        
+    Returns:
+        Playwright page instance
+        
+    Yields:
+        Playwright page instance (closes after test)
+    """
+    pw_driver = PlaywrightDriver(config)
+    page = pw_driver.get_page()
+    yield page
+    pw_driver.close()
 
 
 @pytest.fixture(scope="session")

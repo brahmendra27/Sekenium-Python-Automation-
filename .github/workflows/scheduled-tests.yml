@@ -1,0 +1,229 @@
+name: Scheduled Tests
+
+on:
+  schedule:
+    # Run every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: true
+        type: choice
+        options:
+          - all
+          - api
+          - database
+          - ui
+          - smoke
+          - regression
+
+jobs:
+  scheduled-tests:
+    name: Run Scheduled Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ping: 1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          tags: test-automation:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Determine test command
+        id: test-cmd
+        run: |
+          SUITE="${{ github.event.inputs.test_suite || 'all' }}"
+          
+          case $SUITE in
+            api)
+              echo "cmd=pytest tests/api/ -v" >> $GITHUB_OUTPUT
+              ;;
+            database)
+              echo "cmd=pytest tests/database/ -v" >> $GITHUB_OUTPUT
+              ;;
+            ui)
+              echo "cmd=pytest tests/ --ignore=tests/api --ignore=tests/database -v" >> $GITHUB_OUTPUT
+              ;;
+            smoke)
+              echo "cmd=pytest tests/ -m smoke -v" >> $GITHUB_OUTPUT
+              ;;
+            regression)
+              echo "cmd=pytest tests/ -m regression -v" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "cmd=pytest tests/ -v" >> $GITHUB_OUTPUT
+              ;;
+          esac
+      
+      - name: Run tests
+        id: run-tests
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            --network host \
+            -v ${{ github.workspace }}/reports:/app/reports \
+            -e HEADLESS=true \
+            -e MONGODB_CONNECTION_STRING="mongodb://localhost:27017" \
+            test-automation:latest \
+            ${{ steps.test-cmd.outputs.cmd }} \
+            --alluredir=reports/allure-results \
+            --html=reports/report.html \
+            --self-contained-html \
+            --json-report \
+            --json-report-file=reports/report.json
+      
+      - name: Parse test results
+        if: always()
+        id: test-results
+        run: |
+          if [ -f reports/report.json ]; then
+            TOTAL=$(jq '.summary.total' reports/report.json)
+            PASSED=$(jq '.summary.passed' reports/report.json)
+            FAILED=$(jq '.summary.failed' reports/report.json)
+            SKIPPED=$(jq '.summary.skipped // 0' reports/report.json)
+            DURATION=$(jq '.duration' reports/report.json)
+            
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+            echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+            echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-test-reports
+          path: |
+            reports/report.html
+            reports/report.json
+            reports/screenshots/
+            reports/traces/
+          if-no-files-found: warn
+      
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: reports/allure-results/
+          if-no-files-found: warn
+      
+      - name: Generate Allure Report
+        if: always()
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_results: reports/allure-results
+          allure_history: allure-history
+          keep_reports: 30
+      
+      - name: Deploy Allure Report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: scheduled-$(date +%Y-%m-%d)
+      
+      - name: Send Slack notification
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Scheduled Test Results",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.run-tests.outcome == 'success' && '✅' || '❌' }} Scheduled Tests - ${{ github.event.inputs.test_suite || 'all' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Total Tests:*\n${{ steps.test-results.outputs.total }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Passed:*\n✅ ${{ steps.test-results.outputs.passed }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Failed:*\n❌ ${{ steps.test-results.outputs.failed }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Duration:*\n⏱️ ${{ steps.test-results.outputs.duration }}s"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true
+      
+      - name: Send email notification
+        if: always() && steps.run-tests.outcome == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ Scheduled Tests Failed - ${{ github.event.inputs.test_suite || 'all' }}"
+          to: ${{ secrets.EMAIL_RECIPIENTS }}
+          from: GitHub Actions
+          body: |
+            Scheduled tests have failed.
+            
+            Test Suite: ${{ github.event.inputs.test_suite || 'all' }}
+            Total Tests: ${{ steps.test-results.outputs.total }}
+            Passed: ${{ steps.test-results.outputs.passed }}
+            Failed: ${{ steps.test-results.outputs.failed }}
+            Duration: ${{ steps.test-results.outputs.duration }}s
+            
+            View details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        continue-on-error: true
+      
+      - name: Check test results
+        if: steps.run-tests.outcome == 'failure'
+        run: |
+          echo "❌ Scheduled tests failed"
+          exit 1

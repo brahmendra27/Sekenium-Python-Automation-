@@ -1,0 +1,160 @@
+name: API Tests Only
+
+on:
+  pull_request:
+    paths:
+      - 'tests/api/**'
+      - 'framework/api_client.py'
+      - 'framework/config.py'
+      - 'config.yaml'
+      - 'requirements.txt'
+  workflow_dispatch:
+    inputs:
+      test_pattern:
+        description: 'Test pattern to run (e.g., test_get_request)'
+        required: false
+        default: ''
+
+jobs:
+  api-tests:
+    name: Run API Tests
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+          tags: test-automation:py${{ matrix.python-version }}
+          load: true
+          cache-from: type=gha,scope=py${{ matrix.python-version }}
+          cache-to: type=gha,mode=max,scope=py${{ matrix.python-version }}
+      
+      - name: Run API tests
+        id: run-tests
+        continue-on-error: true
+        run: |
+          TEST_CMD="pytest tests/api/ -v --alluredir=reports/allure-results --html=reports/report.html --self-contained-html --json-report --json-report-file=reports/report.json"
+          
+          if [ -n "${{ github.event.inputs.test_pattern }}" ]; then
+            TEST_CMD="$TEST_CMD -k ${{ github.event.inputs.test_pattern }}"
+          fi
+          
+          docker run --rm \
+            -v ${{ github.workspace }}/reports:/app/reports \
+            test-automation:py${{ matrix.python-version }} \
+            $TEST_CMD
+      
+      - name: Parse test results
+        if: always()
+        id: test-results
+        run: |
+          if [ -f reports/report.json ]; then
+            TOTAL=$(jq '.summary.total' reports/report.json)
+            PASSED=$(jq '.summary.passed' reports/report.json)
+            FAILED=$(jq '.summary.failed' reports/report.json)
+            DURATION=$(jq '.duration' reports/report.json)
+            
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+            echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-reports-py${{ matrix.python-version }}
+          path: |
+            reports/report.html
+            reports/report.json
+          if-no-files-found: warn
+      
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-py${{ matrix.python-version }}
+          path: reports/allure-results/
+          if-no-files-found: warn
+      
+      - name: Comment PR with results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const total = '${{ steps.test-results.outputs.total }}';
+            const passed = '${{ steps.test-results.outputs.passed }}';
+            const failed = '${{ steps.test-results.outputs.failed }}';
+            const duration = '${{ steps.test-results.outputs.duration }}';
+            const pythonVersion = '${{ matrix.python-version }}';
+            
+            const status = failed === '0' ? '✅' : '❌';
+            const body = `## ${status} API Tests - Python ${pythonVersion}
+            
+            | Metric | Value |
+            |--------|-------|
+            | Total Tests | ${total} |
+            | Passed | ✅ ${passed} |
+            | Failed | ❌ ${failed} |
+            | Duration | ⏱️ ${duration}s |
+            
+            [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+      
+      - name: Check test results
+        if: steps.run-tests.outcome == 'failure'
+        run: |
+          echo "❌ API tests failed on Python ${{ matrix.python-version }}"
+          exit 1
+  
+  generate-allure-report:
+    name: Generate Allure Report
+    runs-on: ubuntu-latest
+    needs: api-tests
+    if: always()
+    
+    steps:
+      - name: Download all Allure results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: allure-results
+      
+      - name: Merge Allure results
+        run: |
+          mkdir -p allure-results-merged
+          find allure-results -type f -name "*.json" -exec cp {} allure-results-merged/ \;
+      
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_results: allure-results-merged
+          allure_history: allure-history
+          keep_reports: 20
+      
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/

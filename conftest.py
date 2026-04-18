@@ -31,8 +31,11 @@ def driver(config):
     Yields:
         WebDriver instance (quits after test)
     """
-    selenium_driver = SeleniumDriver(config)
-    driver = selenium_driver.get_driver()
+    browser = config.browser
+    headless = config.headless
+    
+    selenium_driver = SeleniumDriver(browser=browser, headless=headless)
+    driver = selenium_driver.initialize()
     yield driver
     driver.quit()
 
@@ -50,9 +53,28 @@ def playwright_driver(config):
     Yields:
         Playwright page instance (closes after test)
     """
-    pw_driver = PlaywrightDriver(config)
-    page = pw_driver.get_page()
+    # Map browser names
+    browser_map = {
+        'chrome': 'chromium',
+        'chromium': 'chromium',
+        'firefox': 'firefox',
+        'webkit': 'webkit'
+    }
+    
+    browser_type = browser_map.get(config.browser.lower(), 'chromium')
+    headless = config.headless
+    
+    pw_driver = PlaywrightDriver(
+        browser_type=browser_type,
+        headless=headless,
+        slow_mo=0,
+        tracing=True
+    )
+    context = pw_driver.initialize()
+    page = context.new_page()
+    
     yield page
+    
     pw_driver.close()
 
 

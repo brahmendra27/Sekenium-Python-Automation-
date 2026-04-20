@@ -305,3 +305,74 @@ def unique_id(worker_id):
     import uuid
     short_id = str(uuid.uuid4())[:8]
     return f"{worker_id}_{short_id}"
+
+
+# ==================== SALESFORCE FIXTURES ====================
+
+@pytest.fixture(scope="session")
+def sf_client(config):
+    """Provide authenticated Salesforce client.
+
+    Authenticates once per session. Skips if SF credentials not configured.
+
+    Yields:
+        SalesforceClient instance (closes after all tests)
+    """
+    from framework.salesforce_client import SalesforceClient
+    import os
+
+    if not os.environ.get('SF_CLIENT_ID'):
+        pytest.skip("Salesforce not configured (SF_CLIENT_ID missing from .env)")
+
+    client = SalesforceClient()
+    if not client.authenticate():
+        pytest.skip("Salesforce authentication failed")
+
+    yield client
+    client.close()
+
+
+@pytest.fixture(scope="function")
+def sf_cleanup(sf_client):
+    """Provide automatic Salesforce record cleanup after test.
+
+    Usage:
+        def test_create_account(sf_client, sf_cleanup):
+            result = sf_client.create("Account", {"Name": "Test"})
+            sf_cleanup("Account", result["id"])
+            # Record will be deleted after test
+    """
+    records_to_delete = []
+
+    def mark_for_cleanup(sobject: str, record_id: str):
+        records_to_delete.append((sobject, record_id))
+
+    yield mark_for_cleanup
+
+    for sobject, record_id in reversed(records_to_delete):
+        try:
+            sf_client.delete(sobject, record_id)
+        except Exception as e:
+            logger.warning(f"Failed to cleanup {sobject}/{record_id}: {e}")
+
+
+# ==================== BOOMI FIXTURES ====================
+
+@pytest.fixture(scope="session")
+def boomi_client():
+    """Provide Boomi middleware client.
+
+    Skips if Boomi credentials not configured.
+
+    Yields:
+        BoomiClient instance (closes after all tests)
+    """
+    from framework.boomi_client import BoomiClient
+    import os
+
+    if not os.environ.get('BOOMI_ACCOUNT_ID'):
+        pytest.skip("Boomi not configured (BOOMI_ACCOUNT_ID missing from .env)")
+
+    client = BoomiClient()
+    yield client
+    client.close()

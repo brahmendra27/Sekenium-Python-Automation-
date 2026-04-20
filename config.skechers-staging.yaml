@@ -1,6 +1,7 @@
 # Skechers Staging Environment Configuration
 
 # Base URL for Skechers staging
+# Credentials should be in .env file: BASE_URL=https://storefront:ske1234@staging.skechers.com/
 base_url: "https://staging.skechers.com/"
 
 # Browser selection: chrome, firefox (Selenium); chromium, firefox, webkit (Playwright)

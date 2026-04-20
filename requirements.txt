@@ -22,6 +22,7 @@ pytest-playwright==0.4.4
 
 # Configuration
 pyyaml==6.0.1
+python-dotenv==1.0.0
 
 # Test data generation
 Faker==19.13.0

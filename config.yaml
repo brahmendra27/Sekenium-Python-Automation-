@@ -1,5 +1,10 @@
+# Default Configuration
+# Credentials should be in .env file, NOT here.
+# See .env.example for the template.
+
 # Base URL for application under test
-base_url: "https://automationteststore.com/"
+# Override with BASE_URL environment variable or .env file
+base_url: "https://staging.skechers.com/"
 
 # Browser selection: chrome, firefox (Selenium); chromium, firefox, webkit (Playwright)
 browser: "chrome"
@@ -28,7 +33,7 @@ playwright:
 
 # API Testing settings
 api:
-  base_url: "https://jsonplaceholder.typicode.com"  # Example API endpoint
+  base_url: "https://jsonplaceholder.typicode.com"
   timeout: 30
   verify_ssl: true
   default_headers:

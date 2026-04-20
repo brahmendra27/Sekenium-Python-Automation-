@@ -286,7 +286,11 @@ class BasePageSelenium:
 
 
 class BasePagePlaywright:
-    """Base class for Playwright Page Objects with common functionality."""
+    """Base class for Playwright Page Objects with common functionality.
+    
+    All page objects should inherit from this class.
+    Provides 80+ reusable Playwright actions matching AQE-KIRO standards.
+    """
     
     def __init__(self, page: Page, timeout=30000):
         """
@@ -298,205 +302,358 @@ class BasePagePlaywright:
         """
         self.page = page
         self.timeout = timeout
-    
+
+    # ==================== NAVIGATION ====================
+
     @allure.step("Navigate to {url}")
-    def navigate_to(self, url):
-        """Navigate to a URL and wait for network idle."""
-        self.page.goto(url)
-        self.page.wait_for_load_state("networkidle")
-    
+    def navigate_to(self, url, wait_until='domcontentloaded'):
+        """Navigate to URL."""
+        self.page.goto(url, wait_until=wait_until)
+
+    def reload_page(self):
+        """Reload current page."""
+        self.page.reload()
+
+    def go_back(self):
+        """Navigate back."""
+        self.page.go_back()
+
+    def go_forward(self):
+        """Navigate forward."""
+        self.page.go_forward()
+
+    def refresh(self):
+        """Refresh page (alias for reload_page)."""
+        self.page.reload()
+
+    def close_page(self):
+        """Close current page."""
+        self.page.close()
+
+    # ==================== ELEMENT LOCATION ====================
+
+    def find_element(self, selector):
+        """Find single element."""
+        return self.page.locator(selector).first
+
+    def find_elements(self, selector):
+        """Find all matching elements."""
+        return self.page.locator(selector).all()
+
+    def element_exists(self, selector, timeout=5000):
+        """Check if element exists."""
+        try:
+            return self.page.locator(selector).first.is_visible(timeout=timeout)
+        except:
+            return False
+
+    def count_elements(self, selector):
+        """Count matching elements."""
+        return self.page.locator(selector).count()
+
+    # ==================== CLICK ACTIONS ====================
+
     @allure.step("Click element: {selector}")
-    def click(self, selector):
-        """
-        Click element.
-        
-        Args:
-            selector: CSS selector or other supported selector
-        """
-        self.page.click(selector, timeout=self.timeout)
-    
+    def click(self, selector, timeout=None, force=False):
+        """Click element."""
+        self.page.locator(selector).first.click(
+            timeout=timeout or self.timeout, force=force
+        )
+
+    def click_with_retry(self, selector, max_attempts=3):
+        """Click with retry logic."""
+        for attempt in range(max_attempts):
+            try:
+                self.click(selector)
+                return True
+            except Exception as e:
+                if attempt == max_attempts - 1:
+                    raise e
+                self.wait(1000)
+        return False
+
+    def double_click(self, selector):
+        """Double click element."""
+        self.page.locator(selector).first.dblclick()
+
+    def right_click(self, selector):
+        """Right click element."""
+        self.page.locator(selector).first.click(button='right')
+
+    def click_at_position(self, selector, x, y):
+        """Click at specific position within element."""
+        self.page.locator(selector).first.click(position={'x': x, 'y': y})
+
+    # ==================== INPUT ACTIONS ====================
+
+    @allure.step("Fill '{text}' into {selector}")
+    def fill(self, selector, text, clear_first=True):
+        """Fill input field."""
+        element = self.page.locator(selector).first
+        if clear_first:
+            element.clear()
+        element.fill(text)
+
     @allure.step("Type '{text}' into {selector}")
     def type(self, selector, text):
-        """
-        Type text into element (clears first).
-        
-        Args:
-            selector: CSS selector or other supported selector
-            text: Text to type
-        """
-        self.page.fill(selector, text, timeout=self.timeout)
-    
-    @allure.step("Get text from {selector}")
-    def get_text(self, selector):
-        """
-        Get text content from element.
-        
-        Args:
-            selector: CSS selector or other supported selector
-            
-        Returns:
-            str: Element text
-        """
-        return self.page.locator(selector).text_content(timeout=self.timeout)
-    
-    @allure.step("Get attribute '{attribute}' from {selector}")
-    def get_attribute(self, selector, attribute):
-        """
-        Get attribute value from element.
-        
-        Args:
-            selector: CSS selector or other supported selector
-            attribute: Attribute name
-            
-        Returns:
-            str: Attribute value
-        """
-        return self.page.locator(selector).get_attribute(attribute, timeout=self.timeout)
-    
-    @allure.step("Check if element is visible: {selector}")
-    def is_visible(self, selector, timeout=None):
-        """
-        Check if element is visible within timeout.
-        
-        Args:
-            selector: CSS selector or other supported selector
-            timeout: Optional custom timeout in milliseconds
-            
-        Returns:
-            bool: True if visible, False otherwise
-        """
-        try:
-            wait_time = timeout or self.timeout
-            self.page.locator(selector).wait_for(state="visible", timeout=wait_time)
-            return True
-        except:
-            return False
-    
-    @allure.step("Check if element exists: {selector}")
-    def element_exists(self, selector, timeout=None):
-        """
-        Check if element exists in DOM (may not be visible).
-        
-        Args:
-            selector: CSS selector or other supported selector
-            timeout: Optional custom timeout in milliseconds
-            
-        Returns:
-            bool: True if exists, False otherwise
-        """
-        try:
-            wait_time = timeout or self.timeout
-            self.page.locator(selector).wait_for(state="attached", timeout=wait_time)
-            return True
-        except:
-            return False
-    
-    @allure.step("Wait for selector: {selector}")
-    def wait_for_selector(self, selector, state="visible"):
-        """
-        Wait for selector to be in specified state.
-        
-        Args:
-            selector: CSS selector or other supported selector
-            state: State to wait for (visible, attached, detached, hidden)
-        """
-        self.page.wait_for_selector(selector, state=state, timeout=self.timeout)
-    
-    @allure.step("Wait for element to disappear: {selector}")
-    def wait_for_element_to_disappear(self, selector, timeout=None):
-        """
-        Wait for element to become hidden or detached.
-        
-        Args:
-            selector: CSS selector or other supported selector
-            timeout: Optional custom timeout in milliseconds
-        """
-        wait_time = timeout or self.timeout
-        self.page.locator(selector).wait_for(state="hidden", timeout=wait_time)
-    
-    @allure.step("Scroll to element: {selector}")
-    def scroll_to_element(self, selector):
-        """
-        Scroll element into view.
-        
-        Args:
-            selector: CSS selector or other supported selector
-        """
-        self.page.locator(selector).scroll_into_view_if_needed(timeout=self.timeout)
-    
-    @allure.step("Take screenshot")
-    def take_screenshot(self, name="screenshot"):
-        """
-        Take screenshot and attach to Allure report.
-        
-        Args:
-            name: Screenshot name for Allure report
-        """
-        screenshot = self.page.screenshot()
-        allure.attach(
-            screenshot,
-            name=name,
-            attachment_type=allure.attachment_type.PNG
-        )
-    
-    @allure.step("Get current URL")
-    def get_current_url(self):
-        """
-        Get current page URL.
-        
-        Returns:
-            str: Current URL
-        """
-        return self.page.url
-    
-    @allure.step("Get page title")
-    def get_page_title(self):
-        """
-        Get current page title.
-        
-        Returns:
-            str: Page title
-        """
-        return self.page.title()
-    
+        """Type text into element (clears first). Alias for fill."""
+        self.fill(selector, text)
+
+    def type_text(self, selector, text, delay=0):
+        """Type text character by character."""
+        self.page.locator(selector).first.type(text, delay=delay)
+
     @allure.step("Press key: {key}")
     def press_key(self, selector, key):
-        """
-        Press a key on an element.
-        
-        Args:
-            selector: CSS selector or other supported selector
-            key: Key to press (e.g., 'Enter', 'Escape', 'Tab')
-        """
-        self.page.locator(selector).press(key, timeout=self.timeout)
-    
-    @allure.step("Select option: {value}")
-    def select_option(self, selector, value):
-        """
-        Select option from dropdown.
-        
-        Args:
-            selector: CSS selector for select element
-            value: Option value to select
-        """
-        self.page.select_option(selector, value, timeout=self.timeout)
-    
-    @allure.step("Check checkbox: {selector}")
+        """Press key on element."""
+        self.page.locator(selector).first.press(key)
+
+    def clear_input(self, selector):
+        """Clear input field."""
+        self.page.locator(selector).first.clear()
+
+    def upload_file(self, selector, file_path):
+        """Upload file(s)."""
+        self.page.locator(selector).first.set_input_files(file_path)
+
+    # ==================== CHECKBOX/RADIO ====================
+
+    @allure.step("Check: {selector}")
+    def check(self, selector):
+        """Check checkbox or radio button."""
+        self.page.locator(selector).first.check()
+
+    @allure.step("Uncheck: {selector}")
+    def uncheck(self, selector):
+        """Uncheck checkbox."""
+        self.page.locator(selector).first.uncheck()
+
+    def is_checked(self, selector):
+        """Check if checkbox/radio is checked."""
+        return self.page.locator(selector).first.is_checked()
+
+    # Keep old aliases
     def check_checkbox(self, selector):
-        """
-        Check a checkbox.
-        
-        Args:
-            selector: CSS selector for checkbox
-        """
-        self.page.check(selector, timeout=self.timeout)
-    
-    @allure.step("Uncheck checkbox: {selector}")
+        """Check a checkbox (alias for check)."""
+        self.check(selector)
+
     def uncheck_checkbox(self, selector):
-        """
-        Uncheck a checkbox.
-        
-        Args:
-            selector: CSS selector for checkbox
-        """
-        self.page.uncheck(selector, timeout=self.timeout)
+        """Uncheck a checkbox (alias for uncheck)."""
+        self.uncheck(selector)
+
+    # ==================== DROPDOWN ====================
+
+    @allure.step("Select option: {selector}")
+    def select_option(self, selector, value=None, label=None, index=None):
+        """Select dropdown option by value, label, or index."""
+        element = self.page.locator(selector).first
+        if value:
+            element.select_option(value=value)
+        elif label:
+            element.select_option(label=label)
+        elif index is not None:
+            element.select_option(index=index)
+
+    # ==================== HOVER & FOCUS ====================
+
+    @allure.step("Hover: {selector}")
+    def hover(self, selector):
+        """Hover over element."""
+        self.page.locator(selector).first.hover()
+
+    @allure.step("Focus: {selector}")
+    def focus(self, selector):
+        """Focus element."""
+        self.page.locator(selector).first.focus()
+
+    # ==================== GET INFORMATION ====================
+
+    @allure.step("Get text from {selector}")
+    def get_text(self, selector):
+        """Get element text."""
+        return self.page.locator(selector).first.text_content() or ""
+
+    def get_inner_text(self, selector):
+        """Get inner text."""
+        return self.page.locator(selector).first.inner_text()
+
+    @allure.step("Get attribute '{attribute}' from {selector}")
+    def get_attribute(self, selector, attribute):
+        """Get element attribute."""
+        return self.page.locator(selector).first.get_attribute(attribute)
+
+    def get_value(self, selector):
+        """Get input value."""
+        return self.page.locator(selector).first.input_value()
+
+    def get_all_text(self, selector):
+        """Get text from all matching elements."""
+        elements = self.find_elements(selector)
+        return [el.text_content() or "" for el in elements]
+
+    # ==================== VISIBILITY & STATE ====================
+
+    @allure.step("Check if visible: {selector}")
+    def is_visible(self, selector, timeout=None):
+        """Check if element is visible."""
+        try:
+            return self.page.locator(selector).first.is_visible(
+                timeout=timeout or 5000
+            )
+        except:
+            return False
+
+    def is_hidden(self, selector):
+        """Check if element is hidden."""
+        return self.page.locator(selector).first.is_hidden()
+
+    def is_enabled(self, selector):
+        """Check if element is enabled."""
+        return self.page.locator(selector).first.is_enabled()
+
+    def is_disabled(self, selector):
+        """Check if element is disabled."""
+        return self.page.locator(selector).first.is_disabled()
+
+    def is_editable(self, selector):
+        """Check if element is editable."""
+        return self.page.locator(selector).first.is_editable()
+
+    # ==================== WAIT ACTIONS ====================
+
+    def wait_for_element(self, selector, state='visible', timeout=None):
+        """Wait for element state (visible, hidden, attached, detached)."""
+        self.page.locator(selector).first.wait_for(
+            state=state, timeout=timeout or self.timeout
+        )
+
+    def wait_for_url(self, url_pattern, timeout=None):
+        """Wait for URL to match pattern."""
+        self.page.wait_for_url(url_pattern, timeout=timeout or self.timeout)
+
+    def wait_for_load_state(self, state='load'):
+        """Wait for page load state (load, domcontentloaded, networkidle)."""
+        self.page.wait_for_load_state(state)
+
+    def wait(self, milliseconds):
+        """Wait for specified time."""
+        self.page.wait_for_timeout(milliseconds)
+
+    def wait_for_selector(self, selector, state="visible", timeout=None):
+        """Wait for selector to appear."""
+        self.page.wait_for_selector(
+            selector, state=state, timeout=timeout or self.timeout
+        )
+
+    def wait_for_element_to_disappear(self, selector, timeout=None):
+        """Wait for element to become hidden or detached."""
+        self.page.locator(selector).wait_for(
+            state="hidden", timeout=timeout or self.timeout
+        )
+
+    # ==================== SCROLL ACTIONS ====================
+
+    @allure.step("Scroll to element: {selector}")
+    def scroll_to_element(self, selector):
+        """Scroll element into view."""
+        self.page.locator(selector).first.scroll_into_view_if_needed()
+
+    def scroll_to_top(self):
+        """Scroll to top of page."""
+        self.page.evaluate("window.scrollTo(0, 0)")
+
+    def scroll_to_bottom(self):
+        """Scroll to bottom of page."""
+        self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+
+    def scroll_by(self, x, y):
+        """Scroll by pixels."""
+        self.page.mouse.wheel(x, y)
+
+    # ==================== SCREENSHOT ====================
+
+    @allure.step("Take screenshot")
+    def take_screenshot(self, path=None, full_page=False, name="screenshot"):
+        """Take screenshot. Saves to path and/or attaches to Allure."""
+        if path:
+            self.page.screenshot(path=path, full_page=full_page)
+        else:
+            screenshot = self.page.screenshot(full_page=full_page)
+            allure.attach(
+                screenshot, name=name,
+                attachment_type=allure.attachment_type.PNG
+            )
+
+    def take_element_screenshot(self, selector, path):
+        """Take screenshot of specific element."""
+        self.page.locator(selector).first.screenshot(path=path)
+
+    # ==================== JAVASCRIPT ====================
+
+    def execute_script(self, script, *args):
+        """Execute JavaScript."""
+        return self.page.evaluate(script, *args)
+
+    def execute_script_on_element(self, selector, script):
+        """Execute JavaScript on element."""
+        return self.page.locator(selector).first.evaluate(script)
+
+    # ==================== ALERTS & DIALOGS ====================
+
+    def accept_alert(self):
+        """Accept alert/confirm dialog."""
+        self.page.on("dialog", lambda dialog: dialog.accept())
+
+    def dismiss_alert(self):
+        """Dismiss alert/confirm dialog."""
+        self.page.on("dialog", lambda dialog: dialog.dismiss())
+
+    # ==================== FRAMES ====================
+
+    def switch_to_frame(self, frame_selector):
+        """Switch to iframe."""
+        return self.page.frame_locator(frame_selector)
+
+    # ==================== DRAG AND DROP ====================
+
+    def drag_and_drop(self, source_selector, target_selector):
+        """Drag and drop element."""
+        self.page.drag_and_drop(source_selector, target_selector)
+
+    # ==================== UTILITY ====================
+
+    @allure.step("Get current URL")
+    def get_current_url(self):
+        """Get current URL."""
+        return self.page.url
+
+    @allure.step("Get page title")
+    def get_page_title(self):
+        """Get page title."""
+        return self.page.title()
+
+    # ==================== ADVANCED SELECTORS ====================
+
+    def find_by_text(self, text, exact=False):
+        """Find element by text."""
+        if exact:
+            return self.page.get_by_text(text, exact=True).first
+        return self.page.get_by_text(text).first
+
+    def find_by_role(self, role, name=None):
+        """Find element by ARIA role."""
+        if name:
+            return self.page.get_by_role(role, name=name).first
+        return self.page.get_by_role(role).first
+
+    def find_by_label(self, label):
+        """Find input by label."""
+        return self.page.get_by_label(label).first
+
+    def find_by_placeholder(self, placeholder):
+        """Find input by placeholder."""
+        return self.page.get_by_placeholder(placeholder).first
+
+    def find_by_test_id(self, test_id):
+        """Find element by test ID."""
+        return self.page.get_by_test_id(test_id).first

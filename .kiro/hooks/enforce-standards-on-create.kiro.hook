@@ -1,0 +1,14 @@
+{
+  "name": "Enforce Standards on Create",
+  "version": "1.0.0",
+  "description": "Reviews new Python files against project standards: naming conventions, no locators in tests, no manual waits, proper POM inheritance.",
+  "enabled": true,
+  "when": {
+    "type": "fileCreated",
+    "patterns": ["**/*.py"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the newly created file against project standards and report any violations. Do NOT auto-fix, only report issues.\n\nFILE NAMING CHECK (do this FIRST):\n- Python file names MUST be snake_case (lowercase letters, digits, underscores only).\n- Test files MUST start with 'test_' prefix.\n- Page object files MUST end with '_page.py'.\n- conftest.py and __init__.py are exempt from the test_ prefix rule.\n\nCONTENT STANDARDS:\n1. No locators inside test files (test_*.py). All selectors must live in page objects.\n2. No manual waits (time.sleep). Rely on Playwright auto-wait.\n3. No hardcoded test data in test files.\n4. Page objects must inherit from BasePageSelenium or BasePagePlaywright.\n5. Prefer stable locators (data-testid, ids, aria labels) over brittle XPath.\n6. Minimize print usage. Rely on assertion messages and Allure reporting.\n7. No duplicated code. Reusable actions belong in base page or page objects.\n\nIf the file is clean, say nothing. Only speak up if there are violations."
+  }
+}

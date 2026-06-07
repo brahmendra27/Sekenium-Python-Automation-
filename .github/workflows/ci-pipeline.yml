@@ -1,0 +1,282 @@
+# CI Pipeline — Lint, Test (Browser Matrix), Report, Deploy Dashboard
+# Triggers on push to main and pull requests
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================
+  # Stage 1: Lint
+  # ============================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install flake8
+
+      - name: Run flake8
+        run: |
+          flake8 framework/ tests/
+
+  # ============================================================
+  # Stage 2: Test (Browser Matrix)
+  # ============================================================
+  test:
+    name: Test (${{ matrix.browser }})
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: |
+          playwright install ${{ matrix.browser }}
+          playwright install-deps ${{ matrix.browser }}
+
+      - name: Run tests
+        env:
+          BROWSER: ${{ matrix.browser }}
+          HEADLESS: "true"
+        run: |
+          pytest \
+            --alluredir=reports/allure-results \
+            -o addopts= \
+            --tb=short \
+            -v \
+            || true
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.browser }}
+          path: reports/allure-results/
+          if-no-files-found: warn
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.browser }}
+          path: screenshots/
+          if-no-files-found: warn
+
+      - name: Upload traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ matrix.browser }}
+          path: reports/traces/
+          if-no-files-found: warn
+
+  # ============================================================
+  # Stage 3: Report
+  # ============================================================
+  report:
+    name: Generate Report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all Allure results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: merged-results/
+          merge-multiple: true
+
+      - name: Install Allure
+        run: |
+          wget -qO- https://github.com/allure-framework/allure2/releases/download/2.25.0/allure-2.25.0.tgz | tar xz
+          echo "$PWD/allure-2.25.0/bin" >> $GITHUB_PATH
+
+      - name: Generate consolidated report
+        run: |
+          allure generate merged-results/ -o allure-report/ --clean
+
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+
+  # ============================================================
+  # Stage 4: Deploy Report to GitHub Pages
+  # ============================================================
+  deploy-dashboard:
+    name: Deploy Report to GitHub Pages
+    needs: report
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dashboard dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download Allure report
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report
+          path: site/allure/
+
+      - name: Download test results for dashboard
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: merged-results/
+          merge-multiple: true
+
+      - name: Ingest results into dashboard DB
+        run: |
+          # Generate pytest-json-report if available from test run
+          if [ -f reports/report.json ]; then
+            python -m dashboard.cli ingest reports/report.json || true
+          fi
+
+      - name: Build static dashboard snapshot
+        run: |
+          # Copy the custom dashboard HTML pages as static files
+          mkdir -p site/dashboard
+          cp dashboard/static/index.html site/dashboard/
+          cp dashboard/static/failure-summary.html site/dashboard/
+
+          # Create a landing page that links to both reports
+          cat > site/index.html << 'LANDING'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>QE Test Reports</title>
+            <style>
+              body { font-family: 'Inter', -apple-system, sans-serif; background: #0f172a; color: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+              .container { text-align: center; max-width: 600px; padding: 40px; }
+              h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+              p { color: #94a3b8; margin-bottom: 2rem; }
+              .links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+              a { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 32px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; text-decoration: none; color: #f1f5f9; font-weight: 600; transition: all 0.2s; min-width: 200px; }
+              a:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.2); }
+              .icon { font-size: 2rem; }
+              .desc { font-size: 0.8rem; color: #94a3b8; font-weight: 400; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>QE Test Reports</h1>
+              <p>Automated test results from the latest CI run</p>
+              <div class="links">
+                <a href="./allure/index.html">
+                  <span class="icon">📊</span>
+                  Allure Report
+                  <span class="desc">Detailed test execution with traces</span>
+                </a>
+                <a href="./dashboard/index.html">
+                  <span class="icon">📈</span>
+                  Trends Dashboard
+                  <span class="desc">Historical trends &amp; domain breakdown</span>
+                </a>
+                <a href="./dashboard/failure-summary.html">
+                  <span class="icon">🔍</span>
+                  Failure Summary
+                  <span class="desc">Failures grouped by cause</span>
+                </a>
+              </div>
+            </div>
+          </body>
+          </html>
+          LANDING
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ============================================================
+  # PR Comment with Summary
+  # ============================================================
+  pr-comment:
+    name: PR Comment
+    needs: test
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post PR comment with test summary
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+
+            const testJobs = jobs.jobs.filter(j => j.name.startsWith('Test'));
+            let summary = '## 🧪 Test Results\n\n| Browser | Status |\n|---------|--------|\n';
+
+            for (const job of testJobs) {
+              const status = job.conclusion === 'success' ? '✅ Passed' : '❌ Failed';
+              const browser = job.name.match(/\((.+)\)/)?.[1] || job.name;
+              summary += `| ${browser} | ${status} |\n`;
+            }
+
+            summary += `\n[View full report](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: summary,
+            });

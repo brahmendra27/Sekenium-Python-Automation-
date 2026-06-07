@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Results Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-content: #0f172a;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-content);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+        }
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 8px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+        .sidebar-logo svg { width: 32px; height: 32px; }
+        .sidebar-logo span { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+        .nav-section { margin-bottom: 24px; }
+        .nav-section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 0 12px; margin-bottom: 8px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-item:hover, .nav-item.active { background: rgba(59,130,246,0.1); color: var(--accent-blue); }
+        .nav-item.active { background: rgba(59,130,246,0.15); }
+        .nav-item svg { width: 18px; height: 18px; opacity: 0.7; }
+
+        /* Main Content */
+        .main { margin-left: 260px; flex: 1; padding: 32px; min-width: 0; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        .page-title { font-size: 1.6rem; font-weight: 700; }
+        .page-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+        .refresh-badge { font-size: 0.75rem; color: var(--text-muted); background: var(--bg-secondary); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); }
+
+        /* Stat Cards */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 28px; }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+        .stat-card.total::before { background: var(--accent-blue); }
+        .stat-card.passed::before { background: var(--accent-green); }
+        .stat-card.failed::before { background: var(--accent-red); }
+        .stat-card.skipped::before { background: var(--accent-yellow); }
+        .stat-card.rate::before { background: var(--accent-purple); }
+        .stat-card.duration::before { background: var(--accent-cyan); }
+        .stat-card.time::before { background: var(--border); }
+        .stat-value { font-size: 1.8rem; font-weight: 700; margin-bottom: 4px; }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value.green { color: var(--accent-green); }
+        .stat-value.red { color: var(--accent-red); }
+        .stat-value.yellow { color: var(--accent-yellow); }
+        .stat-value.blue { color: var(--accent-blue); }
+        .stat-value.purple { color: var(--accent-purple); }
+
+        /* Sections */
+        .section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .section-title { font-size: 1rem; font-weight: 600; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-container { position: relative; height: 280px; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { padding: 10px 12px; text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid rgba(51,65,85,0.5); color: var(--text-secondary); }
+        tr:hover td { background: rgba(59,130,246,0.05); }
+        .outcome-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; }
+        .dot-passed { background: var(--accent-green); }
+        .dot-failed { background: var(--accent-red); }
+        .dot-skipped { background: var(--accent-yellow); }
+        .dot-absent { background: var(--text-muted); }
+        .expandable { cursor: pointer; }
+        .expand-content { display: none; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; margin: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-secondary); white-space: pre-wrap; word-break: break-all; max-height: 250px; overflow-y: auto; border: 1px solid var(--border); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+        .badge-green { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+        .badge-red { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+        .badge-yellow { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+
+        /* States */
+        .error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--accent-red); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display: none; font-size: 0.85rem; }
+        .empty-state { color: var(--text-muted); font-style: italic; padding: 40px; text-align: center; }
+        .success-msg { color: var(--accent-green); font-weight: 500; padding: 20px; text-align: center; font-size: 0.9rem; }
+
+        @media (max-width: 1200px) { .grid-2 { grid-template-columns: 1fr; } }
+        @media (max-width: 1024px) { .sidebar { display: none; } .main { margin-left: 0; } }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#3b82f6"/><path d="M8 16l5 5 11-11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>QE Dashboard</span>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Overview</div>
+            <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</div>
+            <a href="/failures" class="nav-item" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Failure Summary</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Analysis</div>
+            <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>Trends</div>
+            <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Performance</div>
+            <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Flaky Tests</div>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Domains</div>
+            <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>E-commerce</div>
+            <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Salesforce</div>
+            <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16,3 21,3 21,8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21,16 21,21 16,21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>Boomi</div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="page-header">
+            <div>
+                <div class="page-title">Test Results</div>
+                <div class="page-subtitle">Automated test health across all domains</div>
+            </div>
+            <div class="refresh-badge" id="refreshBadge">Auto-refresh: 60s</div>
+        </div>
+
+        <div class="error-banner" id="errorBanner">Unable to load dashboard data. Retrying in 60s.</div>
+        <div id="emptyState" class="empty-state" style="display:none;">No runs ingested yet. Run: python -m dashboard.cli ingest reports/report.json</div>
+
+        <div id="dashboardContent" style="display:none;">
+            <!-- Stat Cards -->
+            <div class="stat-grid" id="summaryCards"></div>
+
+            <!-- Trend Charts -->
+            <div class="grid-2">
+                <div class="section">
+                    <div class="section-header"><span class="section-title">Pass/Fail/Skip Trend</span></div>
+                    <div class="chart-container"><canvas id="trendChart"></canvas></div>
+                </div>
+                <div class="section">
+                    <div class="section-header"><span class="section-title">Pass Rate Trend</span></div>
+                    <div class="chart-container"><canvas id="passRateChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Duration -->
+            <div class="section">
+                <div class="section-header"><span class="section-title">Run Duration Trend</span></div>
+                <div class="chart-container"><canvas id="durationChart"></canvas></div>
+            </div>
+
+            <!-- Domain Breakdown -->
+            <div class="grid-2">
+                <div class="section">
+                    <div class="section-header"><span class="section-title">Domain Breakdown</span></div>
+                    <div id="domainTable"></div>
+                </div>
+                <div class="section">
+                    <div class="section-header"><span class="section-title">Tests by Domain</span></div>
+                    <div class="chart-container"><canvas id="domainDonut"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Failed Tests -->
+            <div class="section">
+                <div class="section-header"><span class="section-title">Failed Tests</span></div>
+                <div id="failedTests"></div>
+            </div>
+
+            <!-- Flaky Tests -->
+            <div class="section">
+                <div class="section-header"><span class="section-title">Flaky Tests</span></div>
+                <div id="flakyTests"></div>
+            </div>
+
+            <!-- Slowest Tests -->
+            <div class="grid-2">
+                <div class="section">
+                    <div class="section-header"><span class="section-title">Slowest Tests</span></div>
+                    <div class="chart-container"><canvas id="slowestChart"></canvas></div>
+                </div>
+                <div class="section">
+                    <div class="section-header"><span class="section-title">Slowest Tests Detail</span></div>
+                    <div id="slowestTable"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    let charts = {};
+    const REFRESH_INTERVAL = 60000;
+
+    // Chart.js global defaults for dark theme
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = '#334155';
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.plugins.legend.labels.padding = 16;
+
+    function passRateClass(rate) {
+        if (rate >= 90) return 'green';
+        if (rate >= 70) return 'yellow';
+        return 'red';
+    }
+
+    function truncate(str, len) {
+        if (!str) return '';
+        return str.length > len ? str.substring(0, len) + '...' : str;
+    }
+
+    async function fetchJSON(url) {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return resp.json();
+    }
+
+    function destroyChart(name) {
+        if (charts[name]) { charts[name].destroy(); charts[name] = null; }
+    }
+
+    function renderSummaryCards(run) {
+        const el = document.getElementById('summaryCards');
+        el.innerHTML = `
+            <div class="stat-card total"><div class="stat-value blue">${run.total}</div><div class="stat-label">Total Tests</div></div>
+            <div class="stat-card passed"><div class="stat-value green">${run.passed}</div><div class="stat-label">Passed</div></div>
+            <div class="stat-card failed"><div class="stat-value red">${run.failed}</div><div class="stat-label">Failed</div></div>
+            <div class="stat-card skipped"><div class="stat-value yellow">${run.skipped}</div><div class="stat-label">Skipped</div></div>
+            <div class="stat-card rate"><div class="stat-value ${passRateClass(run.pass_rate)}">${run.pass_rate}%</div><div class="stat-label">Pass Rate</div></div>
+            <div class="stat-card duration"><div class="stat-value">${run.duration_display}</div><div class="stat-label">Duration</div></div>
+            <div class="stat-card time"><div class="stat-value" style="font-size:0.95rem">${run.created_display}</div><div class="stat-label">Run Time</div></div>
+        `;
+    }
+
+    function renderTrendChart(trends) {
+        const data = trends.slice().reverse();
+        const labels = data.map(t => t.created_display.split(' ')[0]);
+        destroyChart('trend');
+        charts.trend = new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Passed', data: data.map(t => t.passed), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#10b981' },
+                    { label: 'Failed', data: data.map(t => t.failed), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#ef4444' },
+                    { label: 'Skipped', data: data.map(t => t.skipped), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#f59e0b' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#f1f5f9', bodyColor: '#94a3b8', callbacks: { afterBody: (ctx) => { const t = data[ctx[0].dataIndex]; return `Pass Rate: ${t.pass_rate}%`; }}}}, scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(51,65,85,0.5)' } } } }
+        });
+    }
+
+    function renderPassRateChart(trends) {
+        const data = trends.slice().reverse();
+        const labels = data.map(t => t.created_display.split(' ')[0]);
+        destroyChart('passRate');
+        charts.passRate = new Chart(document.getElementById('passRateChart'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Pass Rate %', data: data.map(t => t.pass_rate), borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#8b5cf6' }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(51,65,85,0.5)' } }, x: { grid: { display: false } } }, plugins: { tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#f1f5f9', bodyColor: '#94a3b8' } } }
+        });
+    }
+
+    function renderDurationChart(trends) {
+        const data = trends.slice().reverse();
+        const labels = data.map(t => t.created_display.split(' ')[0]);
+        destroyChart('duration');
+        charts.duration = new Chart(document.getElementById('durationChart'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Duration (s)', data: data.map(t => t.duration), borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.1)', tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#06b6d4' }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(51,65,85,0.5)' } } }, plugins: { tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#f1f5f9', bodyColor: '#94a3b8' } } }
+        });
+    }
+
+    function renderDomainBreakdown(detail) {
+        const el = document.getElementById('domainTable');
+        if (!detail || !detail.domains || detail.domains.length === 0) {
+            el.innerHTML = '<div class="empty-state">No domain data available.</div>';
+            return;
+        }
+        let html = '<table><tr><th>Domain</th><th>Passed</th><th>Failed</th><th>Skipped</th><th>Total</th><th>Pass Rate</th></tr>';
+        detail.domains.forEach(d => {
+            const badge = d.pass_rate >= 90 ? 'badge-green' : d.pass_rate >= 70 ? 'badge-yellow' : 'badge-red';
+            html += `<tr><td style="color:var(--text-primary);font-weight:500">${d.domain}</td><td style="color:var(--accent-green)">${d.passed}</td><td style="color:var(--accent-red)">${d.failed}</td><td style="color:var(--accent-yellow)">${d.skipped}</td><td>${d.total}</td><td><span class="badge ${badge}">${d.pass_rate}%</span></td></tr>`;
+        });
+        html += '</table>';
+        el.innerHTML = html;
+
+        destroyChart('donut');
+        charts.donut = new Chart(document.getElementById('domainDonut'), {
+            type: 'doughnut',
+            data: { labels: detail.domains.map(d => d.domain), datasets: [{ data: detail.domains.map(d => d.total), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'], borderColor: '#1e293b', borderWidth: 3 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right' } } }
+        });
+    }
+
+    function renderFailedTests(detail) {
+        const el = document.getElementById('failedTests');
+        const failed = detail.tests.filter(t => t.outcome === 'failed');
+        if (failed.length === 0) {
+            el.innerHTML = '<div class="success-msg">&#10004; All tests passed!</div>';
+            return;
+        }
+        let html = '<table><tr><th>Test</th><th>Domain</th><th>Duration</th><th>Error</th></tr>';
+        failed.forEach((t, i) => {
+            const errShort = truncate(t.error_message || '', 200);
+            const hasMore = (t.error_message && t.error_message.length > 200) || t.longrepr;
+            html += `<tr class="${hasMore ? 'expandable' : ''}" onclick="toggleExpand('fail-${i}')"><td style="color:var(--text-primary)">${t.nodeid.split('::').slice(-1)[0]}</td><td><span class="badge badge-red">${t.domain}</span></td><td>${t.duration.toFixed(2)}s</td><td>${errShort}${hasMore ? ' &#9660;' : ''}</td></tr>`;
+            if (hasMore) {
+                html += `<tr id="fail-${i}" style="display:none"><td colspan="4"><div class="expand-content">${t.error_message || ''}\n\n${t.longrepr || ''}</div></td></tr>`;
+            }
+        });
+        html += '</table>';
+        el.innerHTML = html;
+    }
+
+    function toggleExpand(id) {
+        const row = document.getElementById(id);
+        if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+    }
+
+    function renderFlakyTests(flaky) {
+        const el = document.getElementById('flakyTests');
+        if (!flaky || flaky.length === 0) {
+            el.innerHTML = '<div class="empty-state">No flaky tests detected. Looking good!</div>';
+            return;
+        }
+        let html = '<table><tr><th>Test</th><th>Domain</th><th>Flips</th><th>History</th></tr>';
+        flaky.forEach(t => {
+            const dots = t.outcomes.map(o => `<span class="outcome-dot dot-${o}"></span>`).join('');
+            html += `<tr><td style="color:var(--text-primary)">${t.nodeid.split('::').slice(-1)[0]}</td><td>${t.domain}</td><td><span class="badge badge-yellow">${t.flip_count}</span></td><td>${dots}</td></tr>`;
+        });
+        html += '</table>';
+        el.innerHTML = html;
+    }
+
+    function renderSlowestTests(slowest) {
+        const el = document.getElementById('slowestTable');
+        if (!slowest || slowest.length === 0) {
+            el.innerHTML = '<div class="empty-state">No test data available.</div>';
+            return;
+        }
+        let html = '<table><tr><th>Test</th><th>Domain</th><th>Duration</th><th>Status</th></tr>';
+        slowest.forEach(t => {
+            const statusBadge = t.outcome === 'passed' ? 'badge-green' : t.outcome === 'failed' ? 'badge-red' : 'badge-yellow';
+            html += `<tr><td style="color:var(--text-primary)">${t.nodeid.split('::').slice(-1)[0]}</td><td>${t.domain}</td><td>${t.duration.toFixed(2)}s</td><td><span class="badge ${statusBadge}">${t.outcome}</span></td></tr>`;
+        });
+        html += '</table>';
+        el.innerHTML = html;
+
+        destroyChart('slowest');
+        const labels = slowest.map(t => t.nodeid.split('::').pop());
+        charts.slowest = new Chart(document.getElementById('slowestChart'), {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Duration (s)', data: slowest.map(t => t.duration), backgroundColor: 'rgba(59,130,246,0.6)', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { grid: { color: 'rgba(51,65,85,0.5)' } }, y: { grid: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+    }
+
+    async function loadDashboard() {
+        try {
+            document.getElementById('errorBanner').style.display = 'none';
+            const [runs, trends, flaky, slowest] = await Promise.all([
+                fetchJSON('/api/runs?limit=1'),
+                fetchJSON('/api/trends?limit=20'),
+                fetchJSON('/api/flaky'),
+                fetchJSON('/api/slowest?limit=10')
+            ]);
+
+            if (!runs || runs.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('dashboardContent').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+
+            const latestRun = runs[0];
+            renderSummaryCards(latestRun);
+            renderTrendChart(trends);
+            renderPassRateChart(trends);
+            renderDurationChart(trends);
+
+            try {
+                const detail = await fetchJSON(`/api/runs/${latestRun.run_id}`);
+                renderDomainBreakdown(detail);
+                renderFailedTests(detail);
+            } catch (e) {
+                console.error('Failed to load run detail:', e);
+            }
+
+            renderFlakyTests(flaky);
+            renderSlowestTests(slowest);
+        } catch (err) {
+            console.error('Dashboard load error:', err);
+            document.getElementById('errorBanner').style.display = 'block';
+        }
+    }
+
+    loadDashboard();
+    setInterval(loadDashboard, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>

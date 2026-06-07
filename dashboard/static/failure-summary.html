@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Failure Summary - QE Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-content: #0f172a;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --accent-orange: #f97316;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-content);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            position: fixed;
+            top: 0; left: 0; height: 100vh;
+            overflow-y: auto; z-index: 100;
+        }
+        .sidebar-logo {
+            display: flex; align-items: center; gap: 10px;
+            padding: 0 8px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+        .sidebar-logo svg { width: 32px; height: 32px; }
+        .sidebar-logo span { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+        .nav-section { margin-bottom: 24px; }
+        .nav-section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 0 12px; margin-bottom: 8px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;
+            transition: all 0.2s; text-decoration: none;
+        }
+        .nav-item:hover, .nav-item.active { background: rgba(59,130,246,0.1); color: var(--accent-blue); }
+        .nav-item.active { background: rgba(59,130,246,0.15); }
+        .nav-item svg { width: 18px; height: 18px; opacity: 0.7; }
+
+        /* Main Content */
+        .main { margin-left: 260px; flex: 1; padding: 32px; min-width: 0; }
+
+        /* Page Header */
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { font-size: 1.6rem; font-weight: 700; }
+        .page-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+        .run-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .meta-chip {
+            font-size: 0.75rem; padding: 4px 10px; border-radius: 16px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        /* KPI Tiles */
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+        .kpi-tile {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 20px; position: relative;
+            overflow: hidden; cursor: pointer; transition: all 0.2s;
+        }
+        .kpi-tile:hover { border-color: var(--accent-blue); transform: translateY(-1px); }
+        .kpi-tile.active { border-color: var(--accent-blue); box-shadow: 0 0 0 1px var(--accent-blue); }
+        .kpi-tile::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+        .kpi-tile.failed::before { background: var(--accent-red); }
+        .kpi-tile.flaky::before { background: var(--accent-orange); }
+        .kpi-tile.skipped::before { background: var(--accent-yellow); }
+        .kpi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .kpi-title { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-title.failed { color: var(--accent-red); }
+        .kpi-title.flaky { color: var(--accent-orange); }
+        .kpi-title.skipped { color: var(--accent-yellow); }
+        .kpi-count { font-size: 2rem; font-weight: 700; }
+        .kpi-count.failed { color: var(--accent-red); }
+        .kpi-count.flaky { color: var(--accent-orange); }
+        .kpi-count.skipped { color: var(--accent-yellow); }
+        .kpi-categories { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .kpi-cat-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.75rem; color: var(--text-secondary); padding: 2px 0;
+        }
+        .kpi-cat-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+        /* Filter Bar */
+        .filter-bar {
+            display: flex; gap: 8px; align-items: center; margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-input {
+            flex: 1; min-width: 200px; padding: 10px 14px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text-primary); font-size: 0.85rem;
+            outline: none; transition: border-color 0.2s;
+        }
+        .filter-input:focus { border-color: var(--accent-blue); }
+        .filter-input::placeholder { color: var(--text-muted); }
+        .filter-chip {
+            padding: 6px 12px; border-radius: 16px; font-size: 0.75rem;
+            font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+            background: var(--bg-secondary); color: var(--text-secondary);
+            transition: all 0.2s; user-select: none;
+        }
+        .filter-chip:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+        .filter-chip.active { background: rgba(59,130,246,0.15); border-color: var(--accent-blue); color: var(--accent-blue); }
+
+        /* Sections */
+        .section {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .section-title { font-size: 1rem; font-weight: 600; }
+        .section-count { font-size: 0.75rem; color: var(--text-muted); background: var(--bg-primary); padding: 4px 8px; border-radius: 12px; }
+
+        /* Error Groups */
+        .error-group { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+        .error-group-header {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .error-group-header:hover { background: rgba(59,130,246,0.05); }
+        .error-group-expand { color: var(--text-muted); font-size: 0.8rem; transition: transform 0.2s; }
+        .error-group-expand.open { transform: rotate(90deg); }
+        .error-group-error {
+            flex: 1; font-size: 0.82rem; color: var(--text-primary);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .error-group-badge {
+            padding: 3px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600;
+            background: rgba(239,68,68,0.15); color: var(--accent-red);
+            white-space: nowrap;
+        }
+        .error-group-category {
+            padding: 3px 8px; border-radius: 4px; font-size: 0.65rem;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .cat-assertion { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+        .cat-element_not_found { background: rgba(249,115,22,0.15); color: var(--accent-orange); }
+        .cat-timeout { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+        .cat-network { background: rgba(6,182,212,0.15); color: var(--accent-cyan); }
+        .cat-other { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+        .cat-timing { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+        .cat-environment { background: rgba(6,182,212,0.15); color: var(--accent-cyan); }
+        .cat-assertion_intermittent { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+        .cat-manual { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+        .cat-configuration { background: rgba(6,182,212,0.15); color: var(--accent-cyan); }
+        .cat-conditional { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+
+        .error-group-tests { display: none; border-top: 1px solid var(--border); }
+        .error-group-tests.open { display: block; }
+
+        /* Test Rows inside groups */
+        .test-row {
+            display: flex; align-items: center; gap: 12px; padding: 10px 16px 10px 44px;
+            border-bottom: 1px solid rgba(51,65,85,0.3); cursor: pointer;
+            transition: background 0.2s; font-size: 0.82rem;
+        }
+        .test-row:last-child { border-bottom: none; }
+        .test-row:hover { background: rgba(59,130,246,0.05); }
+        .test-status-icon { font-size: 0.9rem; width: 20px; text-align: center; }
+        .test-name { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .test-domain { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; background: rgba(59,130,246,0.1); color: var(--accent-blue); }
+        .test-duration { color: var(--text-muted); font-size: 0.75rem; min-width: 50px; text-align: right; }
+
+        /* Detailed Analysis Table */
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        th {
+            padding: 10px 12px; text-align: left; color: var(--text-muted);
+            font-weight: 500; font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; background: var(--bg-card); z-index: 1;
+        }
+        td { padding: 10px 12px; border-bottom: 1px solid rgba(51,65,85,0.3); color: var(--text-secondary); }
+        tr:hover td { background: rgba(59,130,246,0.03); }
+        tr.clickable { cursor: pointer; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+        .badge-red { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+        .badge-orange { background: rgba(249,115,22,0.15); color: var(--accent-orange); }
+        .badge-yellow { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+        .badge-green { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+
+        /* Side Panel */
+        .side-panel {
+            position: fixed; top: 0; right: -480px; width: 480px; height: 100vh;
+            background: var(--bg-secondary); border-left: 1px solid var(--border);
+            z-index: 200; transition: right 0.3s ease; overflow-y: auto;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+        }
+        .side-panel.open { right: 0; }
+        .panel-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 24px; border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; background: var(--bg-secondary); z-index: 1;
+        }
+        .panel-title { font-size: 0.9rem; font-weight: 600; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .panel-close {
+            width: 32px; height: 32px; border-radius: 6px; border: none;
+            background: var(--bg-primary); color: var(--text-secondary);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; transition: all 0.2s;
+        }
+        .panel-close:hover { background: rgba(239,68,68,0.1); color: var(--accent-red); }
+        .panel-body { padding: 24px; }
+        .panel-section { margin-bottom: 20px; }
+        .panel-section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+        .panel-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .panel-detail-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+        .panel-detail-value { font-size: 0.85rem; color: var(--text-primary); font-weight: 500; }
+        .panel-error {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 8px; padding: 14px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.75rem; color: var(--accent-red); white-space: pre-wrap;
+            word-break: break-all; max-height: 150px; overflow-y: auto;
+        }
+        .panel-stacktrace {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 8px; padding: 14px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.72rem; color: var(--text-secondary); white-space: pre-wrap;
+            word-break: break-all; max-height: 300px; overflow-y: auto;
+        }
+
+        /* Overlay */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 199; display: none; }
+        .overlay.open { display: block; }
+
+        /* Empty / Error States */
+        .empty-state { color: var(--text-muted); font-style: italic; padding: 40px; text-align: center; }
+        .error-banner {
+            background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+            color: var(--accent-red); padding: 12px 16px; border-radius: 8px;
+            margin-bottom: 20px; display: none; font-size: 0.85rem;
+        }
+
+        /* Sort controls */
+        .sort-controls { display: flex; gap: 6px; }
+        .sort-btn {
+            padding: 4px 10px; border-radius: 6px; font-size: 0.7rem;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+        }
+        .sort-btn:hover, .sort-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+        @media (max-width: 1200px) { .kpi-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1024px) { .sidebar { display: none; } .main { margin-left: 0; } .side-panel { width: 100%; } }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#3b82f6"/><path d="M8 16l5 5 11-11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>QE Dashboard</span>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Overview</div>
+            <a href="/" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+            <a href="/failures" class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Failure Summary</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Analysis</div>
+            <a href="/" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>Trends</a>
+            <a href="/" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Performance</a>
+            <a href="/" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Flaky Tests</a>
+        </div>
+    </aside>
+
+    <!-- Overlay for side panel -->
+    <div class="overlay" id="overlay" onclick="closeSidePanel()"></div>
+
+    <!-- Side Panel -->
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-header">
+            <span class="panel-title" id="panelTitle">Test Details</span>
+            <button class="panel-close" onclick="closeSidePanel()">&times;</button>
+        </div>
+        <div class="panel-body" id="panelBody"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="page-header">
+            <div>
+                <div class="page-title">Failure Summary</div>
+                <div class="page-subtitle">Failed, flaky, and skipped tests grouped by cause</div>
+            </div>
+            <div class="run-meta" id="runMeta"></div>
+        </div>
+
+        <div class="error-banner" id="errorBanner">Unable to load failure data. Check that the dashboard server is running.</div>
+
+        <div id="content">
+            <!-- KPI Tiles -->
+            <div class="kpi-grid" id="kpiGrid"></div>
+
+            <!-- Filter Bar -->
+            <div class="filter-bar" id="filterBar">
+                <input type="text" class="filter-input" id="searchInput" placeholder="Search by test name or error text..." oninput="applyFilters()">
+                <div class="filter-chip active" data-filter="all" onclick="setStatusFilter('all')">All</div>
+                <div class="filter-chip" data-filter="failed" onclick="setStatusFilter('failed')">Failed</div>
+                <div class="filter-chip" data-filter="flaky" onclick="setStatusFilter('flaky')">Flaky</div>
+                <div class="filter-chip" data-filter="skipped" onclick="setStatusFilter('skipped')">Skipped</div>
+            </div>
+
+            <!-- Error Groups -->
+            <div class="section" id="errorGroupsSection">
+                <div class="section-header">
+                    <span class="section-title">Error Groups</span>
+                    <span class="section-count" id="errorGroupCount">0 groups</span>
+                </div>
+                <div id="errorGroups"></div>
+            </div>
+
+            <!-- Detailed Analysis -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">Detailed Analysis</span>
+                    <div class="sort-controls">
+                        <button class="sort-btn active" onclick="setSort('default')">Default</button>
+                        <button class="sort-btn" onclick="setSort('duration-desc')">Slowest</button>
+                        <button class="sort-btn" onclick="setSort('duration-asc')">Fastest</button>
+                    </div>
+                </div>
+                <div style="max-height:500px; overflow-y:auto;">
+                    <table>
+                        <thead><tr><th>Status</th><th>Test</th><th>Domain</th><th>Category</th><th>Duration</th><th>Error</th></tr></thead>
+                        <tbody id="detailTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    let failureData = null;
+    let currentStatusFilter = 'all';
+    let currentSort = 'default';
+    let activeKpiFilter = null;
+
+    const CATEGORY_LABELS = {
+        assertion: 'Assertion Failure',
+        element_not_found: 'Element Not Found',
+        timeout: 'Timeout',
+        network: 'Network Issue',
+        other: 'Other',
+        timing: 'Timing Related',
+        environment: 'Environment',
+        assertion_intermittent: 'Assertion Intermittent',
+        manual: 'Manually Skipped',
+        configuration: 'Configuration',
+        conditional: 'Conditional',
+    };
+
+    const CATEGORY_COLORS = {
+        assertion: '#8b5cf6',
+        element_not_found: '#f97316',
+        timeout: '#f59e0b',
+        network: '#06b6d4',
+        other: '#64748b',
+        timing: '#f59e0b',
+        environment: '#06b6d4',
+        assertion_intermittent: '#8b5cf6',
+        manual: '#64748b',
+        configuration: '#06b6d4',
+        conditional: '#f59e0b',
+    };
+
+    function truncate(str, len) {
+        if (!str) return '';
+        return str.length > len ? str.substring(0, len) + '...' : str;
+    }
+
+    async function loadFailureData() {
+        try {
+            document.getElementById('errorBanner').style.display = 'none';
+            const resp = await fetch('/api/failures');
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            failureData = await resp.json();
+
+            if (!failureData.kpi || Object.keys(failureData.kpi).length === 0) {
+                document.getElementById('content').innerHTML = '<div class="empty-state">No runs ingested yet.</div>';
+                return;
+            }
+
+            renderRunMeta();
+            renderKpiTiles();
+            renderErrorGroups();
+            renderDetailTable();
+        } catch (err) {
+            console.error('Failed to load failure data:', err);
+            document.getElementById('errorBanner').style.display = 'block';
+        }
+    }
+
+    function renderRunMeta() {
+        const kpi = failureData.kpi;
+        document.getElementById('runMeta').innerHTML =
+            '<span class="meta-chip">' + kpi.created_display + '</span>' +
+            '<span class="meta-chip">' + kpi.duration_display + '</span>' +
+            '<span class="meta-chip">' + kpi.total + ' tests</span>' +
+            '<span class="meta-chip">' + kpi.pass_rate + '% pass rate</span>';
+    }
+
+    function renderKpiTiles() {
+        const kpi = failureData.kpi;
+        const el = document.getElementById('kpiGrid');
+
+        function renderCategories(categories) {
+            if (!categories || Object.keys(categories).length === 0) return '';
+            return Object.entries(categories).map(function(entry) {
+                var cat = entry[0], count = entry[1];
+                return '<div class="kpi-cat-row"><span><span class="kpi-cat-dot" style="background:' + (CATEGORY_COLORS[cat] || '#64748b') + '"></span>' + (CATEGORY_LABELS[cat] || cat) + '</span><span>' + count + '</span></div>';
+            }).join('');
+        }
+
+        el.innerHTML =
+            '<div class="kpi-tile failed ' + (activeKpiFilter === 'failed' ? 'active' : '') + '" onclick="toggleKpiFilter(\'failed\')">' +
+                '<div class="kpi-header"><span class="kpi-title failed">Failed</span></div>' +
+                '<div class="kpi-count failed">' + kpi.failed.total + '</div>' +
+                '<div class="kpi-categories">' + renderCategories(kpi.failed.categories) + '</div>' +
+            '</div>' +
+            '<div class="kpi-tile flaky ' + (activeKpiFilter === 'flaky' ? 'active' : '') + '" onclick="toggleKpiFilter(\'flaky\')">' +
+                '<div class="kpi-header"><span class="kpi-title flaky">Flaky</span></div>' +
+                '<div class="kpi-count flaky">' + kpi.flaky.total + '</div>' +
+                '<div class="kpi-categories">' + renderCategories(kpi.flaky.categories) + '</div>' +
+            '</div>' +
+            '<div class="kpi-tile skipped ' + (activeKpiFilter === 'skipped' ? 'active' : '') + '" onclick="toggleKpiFilter(\'skipped\')">' +
+                '<div class="kpi-header"><span class="kpi-title skipped">Skipped</span></div>' +
+                '<div class="kpi-count skipped">' + kpi.skipped.total + '</div>' +
+                '<div class="kpi-categories">' + renderCategories(kpi.skipped.categories) + '</div>' +
+            '</div>';
+    }
+
+    function renderErrorGroups() {
+        var groups = getFilteredErrorGroups();
+        var el = document.getElementById('errorGroups');
+        document.getElementById('errorGroupCount').textContent = groups.length + ' group' + (groups.length !== 1 ? 's' : '');
+
+        if (groups.length === 0) {
+            el.innerHTML = '<div class="empty-state">No error groups match your filters.</div>';
+            return;
+        }
+
+        el.innerHTML = groups.map(function(group, gi) {
+            var testsHtml = group.tests.map(function(t) {
+                var icon = t.status === 'failed' ? '&#10060;' : '&#9888;&#65039;';
+                return '<div class="test-row" onclick="openSidePanelByIndex(' + gi + ',' + group.tests.indexOf(t) + ')">' +
+                    '<span class="test-status-icon">' + icon + '</span>' +
+                    '<span class="test-name">' + extractTestName(t.nodeid) + '</span>' +
+                    '<span class="test-domain">' + t.domain + '</span>' +
+                    '<span class="test-duration">' + t.duration.toFixed(2) + 's</span>' +
+                '</div>';
+            }).join('');
+
+            return '<div class="error-group">' +
+                '<div class="error-group-header" onclick="toggleGroup(' + gi + ')">' +
+                    '<span class="error-group-expand" id="expand-' + gi + '">&#9654;</span>' +
+                    '<span class="error-group-category cat-' + group.category + '">' + (CATEGORY_LABELS[group.category] || group.category) + '</span>' +
+                    '<span class="error-group-error" title="' + escapeAttr(group.error) + '">' + escapeHtml(group.error) + '</span>' +
+                    '<span class="error-group-badge">' + group.count + ' test' + (group.count !== 1 ? 's' : '') + '</span>' +
+                '</div>' +
+                '<div class="error-group-tests" id="group-tests-' + gi + '">' + testsHtml + '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    function renderDetailTable() {
+        var tests = getFilteredTests();
+        var el = document.getElementById('detailTable');
+
+        if (tests.length === 0) {
+            el.innerHTML = '<tr><td colspan="6" class="empty-state">No tests match your filters.</td></tr>';
+            return;
+        }
+
+        el.innerHTML = tests.map(function(t, i) {
+            var statusBadge = t.status === 'failed' ? 'badge-red' : t.status === 'flaky' ? 'badge-orange' : 'badge-yellow';
+            return '<tr class="clickable" onclick="openSidePanelDirect(' + i + ')">' +
+                '<td><span class="badge ' + statusBadge + '">' + t.status + '</span></td>' +
+                '<td style="color:var(--text-primary);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeAttr(t.nodeid) + '">' + extractTestName(t.nodeid) + '</td>' +
+                '<td>' + t.domain + '</td>' +
+                '<td><span class="error-group-category cat-' + t.category + '">' + (CATEGORY_LABELS[t.category] || t.category) + '</span></td>' +
+                '<td>' + t.duration.toFixed(2) + 's</td>' +
+                '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeAttr(t.error_message || '') + '">' + truncate(t.error_message || '', 80) + '</td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    // --- Filtering ---
+    function getFilteredTests() {
+        if (!failureData) return [];
+        var tests = failureData.tests.slice();
+
+        if (currentStatusFilter !== 'all') {
+            tests = tests.filter(function(t) { return t.status === currentStatusFilter; });
+        }
+        if (activeKpiFilter) {
+            tests = tests.filter(function(t) { return t.status === activeKpiFilter; });
+        }
+
+        var query = document.getElementById('searchInput').value.toLowerCase().trim();
+        if (query) {
+            tests = tests.filter(function(t) {
+                return t.nodeid.toLowerCase().indexOf(query) !== -1 ||
+                    (t.error_message && t.error_message.toLowerCase().indexOf(query) !== -1);
+            });
+        }
+
+        if (currentSort === 'duration-desc') {
+            tests.sort(function(a, b) { return b.duration - a.duration; });
+        } else if (currentSort === 'duration-asc') {
+            tests.sort(function(a, b) { return a.duration - b.duration; });
+        }
+
+        return tests;
+    }
+
+    function getFilteredErrorGroups() {
+        if (!failureData) return [];
+        var groups = failureData.error_groups.slice();
+
+        if (currentStatusFilter !== 'all' || activeKpiFilter) {
+            var filter = activeKpiFilter || currentStatusFilter;
+            groups = groups.map(function(g) {
+                var filtered = g.tests.filter(function(t) { return t.status === filter; });
+                return {error: g.error, category: g.category, tests: filtered, count: filtered.length};
+            }).filter(function(g) { return g.count > 0; });
+        }
+
+        var query = document.getElementById('searchInput').value.toLowerCase().trim();
+        if (query) {
+            groups = groups.map(function(g) {
+                var filtered = g.tests.filter(function(t) {
+                    return t.nodeid.toLowerCase().indexOf(query) !== -1 ||
+                        (t.error_message && t.error_message.toLowerCase().indexOf(query) !== -1);
+                });
+                return {error: g.error, category: g.category, tests: filtered, count: filtered.length};
+            }).filter(function(g) { return g.count > 0; });
+        }
+
+        return groups;
+    }
+
+    function setStatusFilter(status) {
+        currentStatusFilter = status;
+        activeKpiFilter = null;
+        document.querySelectorAll('.filter-chip').forEach(function(c) { c.classList.remove('active'); });
+        document.querySelector('.filter-chip[data-filter="' + status + '"]').classList.add('active');
+        applyFilters();
+    }
+
+    function toggleKpiFilter(status) {
+        if (activeKpiFilter === status) {
+            activeKpiFilter = null;
+        } else {
+            activeKpiFilter = status;
+            currentStatusFilter = 'all';
+            document.querySelectorAll('.filter-chip').forEach(function(c) { c.classList.remove('active'); });
+            document.querySelector('.filter-chip[data-filter="all"]').classList.add('active');
+        }
+        renderKpiTiles();
+        applyFilters();
+    }
+
+    function setSort(sort) {
+        currentSort = sort;
+        document.querySelectorAll('.sort-btn').forEach(function(b) { b.classList.remove('active'); });
+        event.target.classList.add('active');
+        renderDetailTable();
+    }
+
+    function applyFilters() {
+        renderErrorGroups();
+        renderDetailTable();
+    }
+
+    // --- Error Group Toggle ---
+    function toggleGroup(index) {
+        var tests = document.getElementById('group-tests-' + index);
+        var expand = document.getElementById('expand-' + index);
+        if (tests.classList.contains('open')) {
+            tests.classList.remove('open');
+            expand.classList.remove('open');
+        } else {
+            tests.classList.add('open');
+            expand.classList.add('open');
+        }
+    }
+
+    // --- Side Panel ---
+    var _filteredErrorGroups = [];
+    var _filteredTests = [];
+
+    function openSidePanelByIndex(groupIndex, testIndex) {
+        var groups = getFilteredErrorGroups();
+        if (groups[groupIndex] && groups[groupIndex].tests[testIndex]) {
+            openSidePanel(groups[groupIndex].tests[testIndex]);
+        }
+    }
+
+    function openSidePanelDirect(index) {
+        var tests = getFilteredTests();
+        if (tests[index]) {
+            openSidePanel(tests[index]);
+        }
+    }
+
+    function openSidePanel(test) {
+        var panel = document.getElementById('sidePanel');
+        var overlay = document.getElementById('overlay');
+        var body = document.getElementById('panelBody');
+
+        document.getElementById('panelTitle').textContent = extractTestName(test.nodeid);
+
+        var statusBadge = test.status === 'failed' ? 'badge-red' : test.status === 'flaky' ? 'badge-orange' : 'badge-yellow';
+
+        var html = '<div class="panel-section">' +
+            '<div class="panel-section-title">Details</div>' +
+            '<div class="panel-detail-grid">' +
+                '<div><div class="panel-detail-label">Status</div><div class="panel-detail-value"><span class="badge ' + statusBadge + '">' + test.status + '</span></div></div>' +
+                '<div><div class="panel-detail-label">Duration</div><div class="panel-detail-value">' + test.duration.toFixed(2) + 's</div></div>' +
+                '<div><div class="panel-detail-label">Domain</div><div class="panel-detail-value">' + test.domain + '</div></div>' +
+                '<div><div class="panel-detail-label">Category</div><div class="panel-detail-value"><span class="error-group-category cat-' + test.category + '">' + (CATEGORY_LABELS[test.category] || test.category) + '</span></div></div>' +
+            '</div></div>' +
+            '<div class="panel-section"><div class="panel-section-title">Node ID</div>' +
+                '<div style="font-size:0.78rem;color:var(--text-secondary);word-break:break-all;font-family:monospace">' + escapeHtml(test.nodeid) + '</div></div>';
+
+        if (test.error_message) {
+            html += '<div class="panel-section"><div class="panel-section-title">Error Message</div>' +
+                '<div class="panel-error">' + escapeHtml(test.error_message) + '</div></div>';
+        }
+        if (test.longrepr) {
+            html += '<div class="panel-section"><div class="panel-section-title">Stack Trace</div>' +
+                '<div class="panel-stacktrace">' + escapeHtml(test.longrepr) + '</div></div>';
+        }
+
+        body.innerHTML = html;
+        panel.classList.add('open');
+        overlay.classList.add('open');
+    }
+
+    function closeSidePanel() {
+        document.getElementById('sidePanel').classList.remove('open');
+        document.getElementById('overlay').classList.remove('open');
+    }
+
+    // --- Utilities ---
+    function extractTestName(nodeid) {
+        var parts = nodeid.split('::');
+        return parts[parts.length - 1] || nodeid;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function escapeAttr(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Keyboard shortcut: Escape closes panel
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeSidePanel();
+    });
+
+    // Load data
+    loadFailureData();
+    // Auto-refresh every 60s
+    setInterval(loadFailureData, 60000);
+    </script>
+</body>
+</html>

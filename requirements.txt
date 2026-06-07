@@ -30,7 +30,7 @@ requests-toolbelt==1.0.0
 jsonschema==4.23.0
 
 # MongoDB Testing
-pymongo==4.10.1
+pymongo>=4.9,<4.10
 motor==3.6.0
 
 # Security auditing (run: pip-audit)

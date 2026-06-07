@@ -333,39 +333,42 @@ class TestSeleniumDriver:
         assert driver_wrapper.browser == 'firefox'
         assert driver_wrapper.headless is True
         assert driver_wrapper.driver is None
-    
+
     def test_default_initialization_values(self):
         """Test that SeleniumDriver uses default values when not specified."""
         driver_wrapper = SeleniumDriver()
-        
+
         assert driver_wrapper.browser == 'chrome'
         assert driver_wrapper.headless is False
         assert driver_wrapper.driver is None
-    
+
     def test_runtime_error_includes_browser_version(self):
-        """Test that RuntimeError includes browser version when available."""
+        """Test that RuntimeError includes browser version."""
         with patch('framework.selenium_driver.webdriver.Chrome') as mock_chrome, \
-             patch('framework.selenium_driver.ChromeDriverManager') as mock_manager, \
-             patch('framework.selenium_driver.ChromeService') as mock_service:
-            
+             patch('framework.selenium_driver.ChromeDriverManager') as mock_mgr, \
+             patch('framework.selenium_driver.ChromeService'):
+
             # Setup mocks
-            mock_manager.return_value.install.return_value = '/path/to/chromedriver'
+            mock_mgr.return_value.install.return_value = '/path/to/driver'
             mock_driver = Mock()
-            mock_driver.capabilities = {'browserVersion': '120.0.6099.109'}
-            
-            # Make Chrome initialization fail after driver is partially initialized
+            mock_driver.capabilities = {
+                'browserVersion': '120.0.6099.109'
+            }
+
+            # Make Chrome init fail after driver is partially set
             def side_effect(*args, **kwargs):
-                # Set the driver before raising exception
                 driver_wrapper.driver = mock_driver
                 raise Exception('Driver initialization failed')
-            
+
             mock_chrome.side_effect = side_effect
-            
-            driver_wrapper = SeleniumDriver(browser='chrome', headless=False)
-            
+
+            driver_wrapper = SeleniumDriver(
+                browser='chrome', headless=False
+            )
+
             with pytest.raises(RuntimeError) as exc_info:
                 driver_wrapper.initialize()
-            
+
             # Verify error message contains browser version
             error_message = str(exc_info.value)
-            assert 'Browser version' in error_message or 'browser version' in error_message.lower()
+            assert 'browser version' in error_message.lower()
